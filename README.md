@@ -54,6 +54,7 @@ Note that the uldaq does not support the MCC USB-1208LS device. Otherwise these 
 Instead we use this third-party driver: 
 
 * [Linux_Drivers](https://github.com/wjasper/Linux_Drivers/tree/master) (contains the top-level python code)
+    * Driver location: `Linux_Drivers/USB/python/usb_1208LS.py`
 * [cython-hidapi](https://github.com/trezor/cython-hidapi) (cython wrappers for the hidapi code which is a dependency for the Linux_Drivers)
 
 ## Device
