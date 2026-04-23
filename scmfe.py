@@ -10,7 +10,9 @@ import sys
 import os
 import midas
 import midas.frontend
+import collections
 import midas.event
+import numpy as np
 
 path = os.path.dirname(os.path.abspath(__file__))
 path = os.path.join(path, 'Linux_Drivers', 'USB', 'python')
@@ -19,38 +21,48 @@ sys.path.append(path)
 from usb_1208LS import usb_1208LS
 
 class SCMVoltages(midas.frontend.EquipmentBase):
-    """
-    We define an "equipment" for each logically distinct task that this frontend
-    performs. For example, you may have one equipment for reading data from a
-    device and sending it to a midas buffer, and another equipment that updates
-    summary statistics every 10s.
-    
-    Each equipment class you define should inherit from 
-    `midas.frontend.EquipmentBase`, and should define a `readout_func` function.
-    If you're creating a "polled" equipment (rather than a periodic one), you
-    should also define a `poll_func` function in addition to `readout_func`.
-    """
+    """Readout of SCM voltages"""
+
+    # default settings
+    DEFAULT_SETTINGS = collections.OrderedDict([
+        ("Gain range", ['Diff_20V','Diff_20V','Diff_20V','Diff_1V']), 
+        ("note0", "SCM gains must be one of Single_10V, Diff_20V, Diff_10V, Diff_5V, Diff_4V, Diff_2.5V, Diff_2V, Diff_1.25V, Diff_1V."),
+    ])
+
+    # gain definitions
+    GAINS = {'Single_10V':  usb_1208LS.SE_10_00V,   # single ended +/- 10 V
+             'Diff_20V':    usb_1208LS.BP_20_00V,   # differential +/- 20 V
+             'Diff_10V':    usb_1208LS.BP_10_00V,   # differential +/- 10 V
+             'Diff_5V':     usb_1208LS.BP_5_00V,    # differential +/- 5 V
+             'Diff_4V':     usb_1208LS.BP_4_00V,    # etc
+             'Diff_2.5V':   usb_1208LS.BP_2_50V,
+             'Diff_2V':     usb_1208LS.BP_2_00V,
+             'Diff_1.25V':  usb_1208LS.BP_1_25V,
+             'Diff_1V':     usb_1208LS.BP_1_00V,
+            }
+
     def __init__(self, client):
         # The name of our equipment. This name will be used on the midas status
         # page, and our info will appear in /Equipment/SCMVoltages in
         # the ODB.
+        # the ODB.
         equip_name = "SCMVoltages"
         
-        # Define the "common" settings of a frontend. These will appear in
-        # /Equipment/MyPeriodicEquipment/Common. The values you set here are
-        # only used the very first time this frontend/equipment runs; after 
-        # that the ODB settings are used.
+        # Define the "common" settings of a frontend.
         default_common = midas.frontend.InitialEquipmentCommon()
         default_common.equip_type = midas.EQ_PERIODIC
         default_common.buffer_name = "SYSTEM"
         default_common.trigger_mask = 0
         default_common.event_id = 1
         default_common.period_ms = 1000
-        default_common.read_when = midas.RO_RUNNING
-        default_common.log_history = 1
+        default_common.read_when = midas.RO_ALWAYS
+        default_common.log_history = 5
         
         # You MUST call midas.frontend.EquipmentBase.__init__ in your equipment's __init__ method!
-        midas.frontend.EquipmentBase.__init__(self, client, equip_name, default_common)
+        midas.frontend.EquipmentBase.__init__(self, client, 
+                                              equip_name, 
+                                              default_common, 
+                                              self.DEFAULT_SETTINGS)
         
         self.set_status("Initializing", status_color='yellowLight')
 
@@ -61,53 +73,42 @@ class SCMVoltages(midas.frontend.EquipmentBase):
         p = self.daq.h.get_product_string()         # product
         s = self.daq.h.get_serial_number_string()   # serial no
         self.client.msg(f"Connected to {m} {p}, serial {s}")
-        
-        # blink on connect
-        self.daq.Blink()
 
-        self.set_status("Initialized", status_color='greenLight')
-        
+        # check gains
+        for gain in self.settings['Gain range']:
+            if gain not in self.GAINS.keys():
+                self.client.msg(f'SCM gains must be one of {", ".join(self.GAINS.keys())}. Found "{gain}"', is_error=True)
+
+        self.set_status("Running", status_color='greenLight')
+
     def detailed_settings_changed_func(self, path, idx, new_value):
-        """
-        You MAY implement this function in your derived class if you want to be told when a variable in /Equipment//Settings has changed.
-
-        If you don't care about what changed (just that any setting has changed), implement settings_changed_func() instead,
-
-        We will automatically update self.settings before calling this function, but you may want to implement this function to validate any settings the user has set, for example.
-
-        It may return anything (we don't check it).
-        """
-
-
-
+        # if the path is the gain check that the new setting is one of the potential options
+        print(path)
+        if "/Gain range" in path: 
+            if new_value not in self.GAINS.keys():
+                self.client.msg(f'SCM gains must be one of {", ".join(self.GAINS.keys())}. Found "{new_value}"', is_error=True)
+                
     def readout_func(self):
-        """
-        For a periodic equipment, this function will be called periodically
-        (every 100ms in this case). It should return either a `midas.event.Event`
-        or None (if we shouldn't write an event).
-        """
-        
-        # # In this example, we just make a simple event with one bank.
-        # event = midas.event.Event()
-        
-        # # Create a bank (called "MYBK") which in this case will store 8 ints.
-        # # data can be a list, a tuple or a numpy array.
-        # # If performance is a strong factor (and you have large bank sizes), 
-        # # you should use a numpy array instead of raw python lists. In
-        # # that case you would have `data = numpy.ndarray(8, numpy.int32)`
-        # # and then fill the ndarray as desired. The correct numpy data type
-        # # for each midas TID_xxx type is shown in the `midas.tid_np_formats`
-        # # dict.
-        # data = [1,2,3,4,5,6,7,8]
-        # event.create_bank("MYBK", midas.TID_INT, data)
-        
-        # return event
+
+        # number of channels to read 
+        nchan = 4
+
+        # gain value
+        gain = [self.GAINS[g] for g in self.settings['Gain range']]
+
+        # take a measurement for each channel
+        data = np.ndarray(nchan, np.float64)
+    
+        for ch, g in zip(range(nchan), gain):
+            val = self.daq.AIn(ch, g)
+            data[ch] = self.daq.volts(g, val)
+
+        # make and fill bank with data
+        event = midas.event.Event()
+        event.create_bank("SCMV", midas.TID_DOUBLE, data)
+        return event
 
 class SCMFrontend(midas.frontend.FrontendBase):
-    """
-    A frontend contains a collection of equipment.
-    You can access self.client to access the ODB etc (see `midas.client.MidasClient`).
-    """
     def __init__(self):
         # You must call __init__ from the base class.
         midas.frontend.FrontendBase.__init__(self, "scmfe")
@@ -117,22 +118,12 @@ class SCMFrontend(midas.frontend.FrontendBase):
         self.add_equipment(SCMVoltages(self.client))
         
     def begin_of_run(self, run_number):
-        """
-        This function will be called at the beginning of the run.
-        You don't have to define it, but you probably should.
-        You can access individual equipment classes through the `self.equipment`
-        dict if needed.
-        """
         return midas.status_codes["SUCCESS"]
         
     def end_of_run(self, run_number):
         return midas.status_codes["SUCCESS"]
     
     def frontend_exit(self):
-        """
-        Most people won't need to define this function, but you can use
-        it for final cleanup if needed.
-        """
         self.client.msg("Finished")
         
 if __name__ == "__main__":

@@ -15,7 +15,7 @@ git clone git@github.com:ucn-triumf/scmfe.git
 cd scmfe
 
 # setup uldaq (as root)
-yum install libusbx libusbx-devel hidapi hidapi-devel Cython python3-devel libudev-devel 
+yum install libusbx libusbx-devel hidapi hidapi-devel Cython python3-devel libudev-devel mariadb mariadb-devel 
 wget -N https://github.com/mccdaq/uldaq/releases/download/v1.2.1/libuldaq-1.2.1.tar.bz2
 tar -xvf libuldaq-1.2.1.tar.bz2
 cd libuldaq-1.2.1
@@ -27,7 +27,7 @@ cd ..
 mkdir vnenv
 python3 -m venv venv
 source venv/bin/activate
-pip install uldaq Cython libusb1
+pip install uldaq Cython libusb1 numpy
 
 # setup hidapi python
 git clone --recursive https://github.com/trezor/cython-hidapi.git
