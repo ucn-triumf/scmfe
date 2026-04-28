@@ -1,0 +1,6 @@
+Cython==3.0.12
+hidapi==0.15.0
+libusb1==3.3.1
+numpy==1.19.5
+setuptools==59.6.0
+pyserial==3.5

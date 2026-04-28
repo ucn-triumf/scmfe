@@ -1,10 +1,12 @@
 # SCM Frontend
 
+## SCM Voltage
+
 Readout of voltage taps on SCM using a MCC DAQ USB-1208LS, connected via USB to daq02.ucn.triumf.ca. Employs CH0-3 and with a readback rate on the Hz scale. 
 
-MCC DAQ documentatoin 
+MCC DAQ documentation 
 
-## Setup
+### Setup
 
 Actions taken on daq02.ucn.triumf.ca: 
 
@@ -27,7 +29,7 @@ cd ..
 mkdir vnenv
 python3 -m venv venv
 source venv/bin/activate
-pip install uldaq Cython libusb1 numpy
+pip install Cython libusb1 numpy # or do pip install -r requirements.txt
 
 # setup hidapi python
 git clone --recursive https://github.com/trezor/cython-hidapi.git
@@ -43,7 +45,7 @@ cd Linux_Drivers/USB/mcc-libusb
 make
 ```
 
-## Useful Links
+### Useful Links
 
 Note that the uldaq does not support the MCC USB-1208LS device. Otherwise these would have been useful:
 
@@ -57,7 +59,7 @@ Instead we use this third-party driver:
     * Driver location: `Linux_Drivers/USB/python/usb_1208LS.py`
 * [cython-hidapi](https://github.com/trezor/cython-hidapi) (cython wrappers for the hidapi code which is a dependency for the Linux_Drivers)
 
-## Device
+### Device
 
 Run `usb-devices`. Output: 
 
@@ -71,3 +73,49 @@ S:  SerialNumber=0205DD48
 C:  #Ifs= 1 Cfg#= 1 Atr=80 MxPwr=100mA
 I:  If#= 0 Alt= 0 #EPs= 2 Cls=03(HID  ) Sub=00 Prot=00 Driver=(none)
 ```
+
+## SCM Temperature 
+
+Looks like there is no Lakeshore driver for this either. WS had used serial communication, we will do the same. 
+
+### Setup
+
+Assuming setup from [SCM Voltage readback](#scm-voltage) was completed:
+
+```bash
+cd scmfe
+source venv/bin/activate
+pip install pyserial
+
+# check which groups can access ports ttyS*
+cd /dev
+ls -l | grep ttyS # probably dialout
+
+# check that user is a part of that group, if not add
+groups ucn 
+
+# add (as root)
+sudo usermod -aG dialout ucn
+
+# check for serial port connectivity
+setserial -g /dev/ttyS[0123]
+```
+
+### Debugging Notes
+
+```bash
+[root@daq02 dev]# dmesg | tail
+[ 2148.215263] usb 3-1: New USB device strings: Mfr=1, Product=2, SerialNumber=3
+[ 2148.215270] usb 3-1: Product: USB-Serial Controller 
+[ 2148.215277] usb 3-1: Manufacturer: Prolific Technology Inc. 
+[ 2148.215282] usb 3-1: SerialNumber: BTDJb10CD20
+```
+
+
+* The Lakeshore might have to be in remote running mode
+* 
+
+### Useful links
+
+* [Pyserial documentation](https://pyserial.readthedocs.io/en/latest/pyserial.html)
+* [Lakeshore 218 manual](https://www.lakeshore.com/docs/default-source/product-downloads/manuals/218_manual.pdf?sfvrsn=6a03068_3) (section 6.2 is the serial interface, 6.3 is the serial commands)

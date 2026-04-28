@@ -13,6 +13,7 @@ import midas.frontend
 import collections
 import midas.event
 import numpy as np
+from Lakeshore218 import Lakeshore218
 
 path = os.path.dirname(os.path.abspath(__file__))
 path = os.path.join(path, 'Linux_Drivers', 'USB', 'python')
@@ -108,6 +109,58 @@ class SCMVoltages(midas.frontend.EquipmentBase):
         event.create_bank("SCMV", midas.TID_DOUBLE, data)
         return event
 
+class SCMTemps(midas.frontend.EquipmentBase):
+    """Readout of SCM temperatures from Lakeshore 218 temperature controller"""
+
+    # default settings
+    DEFAULT_SETTINGS = collections.OrderedDict([
+        ("serial_port", "ttyUSB0"),
+        ("baud_rate", 9600),
+    ])
+
+    def __init__(self, client):
+        # The name of our equipment. This name will be used on the midas status
+        # page, and our info will appear in /Equipment/SCMVoltages in
+        # the ODB.
+        # the ODB.
+        equip_name = "SCMTemperatures"
+        
+        # Define the "common" settings of a frontend.
+        default_common = midas.frontend.InitialEquipmentCommon()
+        default_common.equip_type = midas.EQ_PERIODIC
+        default_common.buffer_name = "SYSTEM"
+        default_common.trigger_mask = 0
+        default_common.event_id = 1
+        default_common.period_ms = 1000
+        default_common.read_when = midas.RO_ALWAYS
+        default_common.log_history = 10
+        
+        # You MUST call midas.frontend.EquipmentBase.__init__ in your equipment's __init__ method!
+        midas.frontend.EquipmentBase.__init__(self, client, 
+                                              equip_name, 
+                                              default_common, 
+                                              self.DEFAULT_SETTINGS)
+        
+        self.set_status("Initializing", status_color='yellowLight')
+
+        # connect to MCC DAQ
+        Lakeshore218.serial_settings['baudrate'] = self.settings['baud_rate']
+        self.daq = Lakeshore218(port=f"/dev/{self.settings['serial_port']}")
+
+        self.set_status("Running", status_color='greenLight')
+
+    def settings_changed_func(self):
+        self.client.msg('SCMTemperature settings only take effect on frontend restart')
+                
+    def readout_func(self):
+
+        data = np.array(self.daq.get_temp_K(), dtype=np.float64)
+
+        # make and fill bank with data
+        event = midas.event.Event()
+        event.create_bank("SCMT", midas.TID_DOUBLE, data)
+        return event
+
 class SCMFrontend(midas.frontend.FrontendBase):
     def __init__(self):
         # You must call __init__ from the base class.
@@ -116,6 +169,7 @@ class SCMFrontend(midas.frontend.FrontendBase):
         # You can add equipment at any time before you call `run()`, but doing
         # it in __init__() seems logical.
         self.add_equipment(SCMVoltages(self.client))
+        self.add_equipment(SCMTemps(self.client))
         
     def begin_of_run(self, run_number):
         return midas.status_codes["SUCCESS"]
