@@ -47,6 +47,8 @@ make
 
 ### Useful Links
 
+* [User manual](https://files.digilent.com/manuals%2FUSB-1208LS.pdf)
+
 Note that the uldaq does not support the MCC USB-1208LS device. Otherwise these would have been useful:
 
 * [mccdaq offical universal library](https://github.com/mccdaq/uldaq)
