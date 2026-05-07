@@ -84,7 +84,7 @@ class SCMVoltages(midas.frontend.EquipmentBase):
 
     def detailed_settings_changed_func(self, path, idx, new_value):
         # if the path is the gain check that the new setting is one of the potential options
-        print(path)
+        
         if "/Gain range" in path: 
             if new_value not in self.GAINS.keys():
                 self.client.msg(f'SCM gains must be one of {", ".join(self.GAINS.keys())}. Found "{new_value}"', is_error=True)
@@ -146,7 +146,7 @@ class SCMTemps(midas.frontend.EquipmentBase):
         # connect to MCC DAQ
         Lakeshore218.serial_settings['baudrate'] = self.settings['baud_rate']
         self.daq = Lakeshore218(port=f"/dev/{self.settings['serial_port']}")
-
+        self.client.msg(f"Connected to Lakeshore218 on port '{self.daq.port}'")
         self.set_status("Running", status_color='greenLight')
 
     def settings_changed_func(self):
@@ -154,7 +154,18 @@ class SCMTemps(midas.frontend.EquipmentBase):
                 
     def readout_func(self):
 
-        data = np.array(self.daq.get_temp_K(), dtype=np.float64)
+        try:
+            data = np.array(self.daq.get_temp_K(), dtype=np.float64)
+        
+        # cannot convert response to floats - disconnect and reconnect to lakeshore
+        except ValueError as err:
+            self.client.msg(f'Bad response from Lakeshore218 ({str(err)}).', is_error=True)
+            self.daq.close()
+            self.client.msg(f'Disconnected from Lakeshore218.')
+            self.daq.connect()
+            self.client.msg(f'Reconnected to Lakeshore218 and trying query again')
+            self.daq.ser.read_all() # clear input buffer?
+            data = np.array(self.daq.get_temp_K(), dtype=np.float64)
 
         # make and fill bank with data
         event = midas.event.Event()
@@ -178,6 +189,8 @@ class SCMFrontend(midas.frontend.FrontendBase):
         return midas.status_codes["SUCCESS"]
     
     def frontend_exit(self):
+        self.equipment['SCMVoltages'].daq.h.close()
+        self.equipment['SCMTemps'].ser.close()
         self.client.msg("Finished")
         
 if __name__ == "__main__":
