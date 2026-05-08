@@ -153,29 +153,13 @@ class SCMTemps(midas.frontend.EquipmentBase):
         self.client.msg('SCMTemperature settings only take effect on frontend restart')
                 
     def readout_func(self):
-
+        """Readout with a timeout, Lakeshore occasionally returns a blank string"""
         try:
             data = np.array(self.daq.get_temp_K(), dtype=np.float64)
-        
-        # cannot convert response to floats - disconnect and reconnect to lakeshore
-        except ValueError as err:
-            self.daq.close()
-            self.daq.connect()
-            self.daq.ser.read_all() # clear input buffer?
-            try_again = True
+        except Exception as err:
+            self.client.msg(f'Bad response from Lakeshore218 ({str(err)}). ', is_error=True)
+            raise err from None
 
-        else:
-            try_again = False
-
-        # try a second time
-        if try_again:
-            try:
-                data = np.array(self.daq.get_temp_K(), dtype=np.float64)
-            except ValueError as err:
-                self.client.msg(f'Bad response from Lakeshore218 ({str(err)}). ', is_error=True)
-                raise err from None
-
-        # make and fill bank with data
         event = midas.event.Event()
         event.create_bank("SCMT", midas.TID_DOUBLE, data)
         return event
@@ -198,7 +182,7 @@ class SCMFrontend(midas.frontend.FrontendBase):
     
     def frontend_exit(self):
         self.equipment['SCMVoltages'].daq.h.close()
-        self.equipment['SCMTemps'].ser.close()
+        self.equipment['SCMTemperatures'].ser.close()
         self.client.msg("Finished")
         
 if __name__ == "__main__":

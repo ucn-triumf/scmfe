@@ -4,10 +4,7 @@
 
 from serial.tools import list_ports
 import serial
-import datetime
-
-DEBUG = False
-
+import time
 
 class Lakeshore218(object):
 
@@ -40,29 +37,9 @@ class Lakeshore218(object):
 
     def connect(self):
         self.ser = serial.Serial(self.port, **self.serial_settings)
-        if DEBUG: print(f'Connection to port {self.port} success')
 
     def close(self):
         self.ser.close()
-        if DEBUG: print(f'Connection to serial port closed')
-
-    def get_temp_C(self, ch=0):
-        """Get temperatures in Celcius
-        
-        Args:
-            ch (int): if ch == 0, return for all channels, else return for specific channel
-        Returns:
-            float|tuple: temperature in Celcius
-        """
-        
-        if ch == 0:
-            val = self.query('CRDG?')
-            temps = tuple(map(float, val.split(',')))
-        else:
-            val = self.query(f'CRDG? {ch}')
-            temps = float(val)
-
-        return temps
 
     def get_temp_K(self, ch=0):
         """Get temperatures in Kelvin
@@ -72,15 +49,30 @@ class Lakeshore218(object):
         Returns:
             float|tuple: temperature in Kelvin
         """
-        
-        if ch == 0:
-            val = self.query('KRDG?')
-            temps = tuple(map(float, val.split(',')))
-        else:
-            val = self.query(f'KRDG? {ch}')
-            temps = float(val)
+        t0 = time.time()
+        err = Exception()
 
-        return temps
+        while time.time() - t0 < self.serial_settings['timeout']:
+            try:
+                if ch == 0:
+                    val = self.query('KRDG?')
+                    temps = tuple(map(float, val.split(',')))
+                else:
+                    val = self.query(f'KRDG? {ch}')
+                    temps = float(val)
+            
+            # bad read: reconnect and clear input buffer, then try again
+            except ValueError as e:
+                self.close()
+                self.connect()
+                self.ser.read_all()
+                err = e
+                time.sleep(0.01)
+
+            else:
+                return temps
+            
+        raise err
 
     def write(self, cmd:str):
         self.ser.reset_output_buffer()
@@ -97,15 +89,11 @@ class Lakeshore218(object):
             str: response from device
         """
 
-        if DEBUG: print(f'{datetime.datetime.now()} Query {cmd}', flush=True)
         self.ser.reset_input_buffer()
         self.write(cmd)
         
-        if DEBUG: print(f'{datetime.datetime.now()}\tWrite completed.', flush=True)
         out = self.ser.read_until(expected=b'\n')
         out = out.decode().strip()
         out = out.replace('\r\n', '')
         
-        if DEBUG: print(f"{datetime.datetime.now()}\tResponse: {out}.", flush=True)
-
         return out
