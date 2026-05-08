@@ -159,13 +159,21 @@ class SCMTemps(midas.frontend.EquipmentBase):
         
         # cannot convert response to floats - disconnect and reconnect to lakeshore
         except ValueError as err:
-            self.client.msg(f'Bad response from Lakeshore218 ({str(err)}).', is_error=True)
             self.daq.close()
-            self.client.msg(f'Disconnected from Lakeshore218.')
             self.daq.connect()
-            self.client.msg(f'Reconnected to Lakeshore218 and trying query again')
             self.daq.ser.read_all() # clear input buffer?
-            data = np.array(self.daq.get_temp_K(), dtype=np.float64)
+            try_again = True
+
+        else:
+            try_again = False
+
+        # try a second time
+        if try_again:
+            try:
+                data = np.array(self.daq.get_temp_K(), dtype=np.float64)
+            except ValueError as err:
+                self.client.msg(f'Bad response from Lakeshore218 ({str(err)}). ', is_error=True)
+                raise err from None
 
         # make and fill bank with data
         event = midas.event.Event()
