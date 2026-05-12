@@ -157,8 +157,8 @@ class SCMTemps(midas.frontend.EquipmentBase):
         try:
             data = np.array(self.daq.get_temp_K(), dtype=np.float64)
         except Exception as err:
-            self.client.msg(f'Bad response from Lakeshore218 ({str(err)}). ', is_error=True)
-            raise err from None
+            #self.client.msg(f'Bad response from Lakeshore218 ({str(err)}). ', is_error=True)
+            return 
 
         event = midas.event.Event()
         event.create_bank("SCMT", midas.TID_DOUBLE, data)
@@ -182,7 +182,7 @@ class SCMFrontend(midas.frontend.FrontendBase):
     
     def frontend_exit(self):
         self.equipment['SCMVoltages'].daq.h.close()
-        self.equipment['SCMTemperatures'].ser.close()
+        self.equipment['SCMTemperatures'].daq.close()
         self.client.msg("Finished")
         
 if __name__ == "__main__":

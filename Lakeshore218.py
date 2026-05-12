@@ -91,7 +91,8 @@ class Lakeshore218(object):
 
         self.ser.reset_input_buffer()
         self.write(cmd)
-        
+        time.sleep(0.1)
+ 
         out = self.ser.read_until(expected=b'\n')
         out = out.decode().strip()
         out = out.replace('\r\n', '')
