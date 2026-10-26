@@ -11,13 +11,20 @@ MCC DAQ documentation
 Actions taken on daq02.ucn.triumf.ca: 
 
 ```bash
-# clone this repo
+# clone this repo =======================
 cd /online
 git clone git@github.com:ucn-triumf/scmfe.git
 cd scmfe
 
-# setup uldaq (as root)
-yum install libusbx libusbx-devel hidapi hidapi-devel Cython python3-devel libudev-devel mariadb mariadb-devel 
+# setup uldaq (as root) ================
+
+# CENTOS7:
+yum install libusbx libusbx-devel hidapi hidapi-devel Cython python3-devel libudev-devel mariadb mariadb-devel
+
+# UBUNTU 24
+apt install libudev-dev libhidapi-dev
+
+# BOTH
 wget -N https://github.com/mccdaq/uldaq/releases/download/v1.2.1/libuldaq-1.2.1.tar.bz2
 tar -xvf libuldaq-1.2.1.tar.bz2
 cd libuldaq-1.2.1
@@ -25,13 +32,14 @@ cd libuldaq-1.2.1
 make install
 cd ..
 
-# setup python
+# setup python ========================
 mkdir vnenv
 python3 -m venv venv
 source venv/bin/activate
 pip install Cython libusb1 numpy # or do pip install -r requirements.txt
 
-# setup hidapi python
+# setup hidapi python ================
+# possibly do this outside venv
 git clone --recursive https://github.com/trezor/cython-hidapi.git
 cd cython-hidapi/
 # if the following line fails, need add the following line to setup.py at line 147 and try again:

@@ -181,8 +181,16 @@ class SCMFrontend(midas.frontend.FrontendBase):
         return midas.status_codes["SUCCESS"]
     
     def frontend_exit(self):
-        self.equipment['SCMVoltages'].daq.h.close()
-        self.equipment['SCMTemperatures'].daq.close()
+        try:
+            self.equipment['SCMVoltages'].daq.h.close()
+        except KeyError:
+            pass
+
+        try:
+            self.equipment['SCMTemperatures'].daq.close()
+        except KeyError:
+            pass
+        
         self.client.msg("Finished")
         
 if __name__ == "__main__":
